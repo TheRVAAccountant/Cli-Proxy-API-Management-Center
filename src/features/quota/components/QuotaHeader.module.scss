@@ -81,6 +81,40 @@
   flex-shrink: 0;
 }
 
+/* Quiet secondary action, same vocabulary as the credential vault header. */
+.ghostAction {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  border: 0;
+  cursor: pointer;
+  background: none;
+  color: var(--text-secondary);
+  border-radius: $radius-full;
+  padding: 10px 14px;
+  font-size: 13px;
+  font-weight: 550;
+  line-height: 1;
+  transition:
+    color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),
+    background-color var(--dur-hover, 200ms) var(--ease-out-strong, ease-out),
+    transform var(--dur-press, 160ms) var(--ease-out-strong, ease-out);
+
+  &:active {
+    transform: scale(0.97);
+  }
+
+  &:focus-visible {
+    outline: 2px solid var(--primary-color);
+    outline-offset: 2px;
+  }
+}
+
+.ghostActionPressed {
+  color: var(--text-primary);
+  background: var(--bg-secondary);
+}
+
 /* 墨色药丸主按钮（深色主题自动反相） */
 .primaryAction {
   display: inline-flex;
@@ -116,6 +150,10 @@
 }
 
 @media (hover: hover) and (pointer: fine) {
+  .ghostAction:hover {
+    color: var(--text-primary);
+  }
+
   .primaryAction:hover:not(:disabled) {
     transform: translateY(-1px);
     background: color-mix(in srgb, var(--text-primary) 86%, var(--bg-secondary));
@@ -145,8 +183,13 @@
 }
 
 @media (prefers-reduced-motion: reduce) {
+  .ghostAction,
   .primaryAction {
     transition: none;
+  }
+
+  .ghostAction:active {
+    transform: none;
   }
 
   .primaryAction:active:not(:disabled) {

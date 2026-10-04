@@ -12,13 +12,13 @@ import { useTranslation } from 'react-i18next';
 import { IconRefreshCw } from '@/components/ui/icons';
 import type { ResolvedTheme } from '@/types';
 import { resolveQuotaErrorMessage } from '@/utils/quota';
-import { getQuotaDisplayName } from '@/utils/quota/identity';
 import {
   getAuthFileIcon,
   getThemeSurfaceIconBackground,
   getTypeLabel,
   isThemeSurfaceIconProvider,
 } from '@/features/authFiles/constants';
+import { maskCredentialText } from '../credentialLabel';
 import { bindQuotaClasses } from '../types';
 import { QUOTA_ADAPTERS, type QuotaCardState } from '../providers';
 import { isQuotaRefreshDisabled, type QuotaFileEntry } from '../logic';
@@ -31,6 +31,9 @@ const quotaClasses = bindQuotaClasses(bodyStyles, 'QuotaBody.module.scss');
 
 export type QuotaCardProps = {
   entry: QuotaFileEntry;
+  /** Credential label, masked unless emails are shown. */
+  displayName: string;
+  showEmails: boolean;
   quota?: QuotaCardState;
   resolvedTheme: ResolvedTheme;
   canRefresh: boolean;
@@ -44,6 +47,8 @@ export type QuotaCardProps = {
 export function QuotaCard(props: QuotaCardProps) {
   const {
     entry,
+    displayName,
+    showEmails,
     quota,
     resolvedTheme,
     canRefresh,
@@ -55,7 +60,6 @@ export function QuotaCard(props: QuotaCardProps) {
   const { t } = useTranslation();
   const adapter = QUOTA_ADAPTERS[entry.type];
   const file = entry.file;
-  const displayName = getQuotaDisplayName(file);
 
   // 挂载时捕获一次延迟：后续 props 变 null 不影响本卡（React 19 禁渲染期读 ref）
   const [mountEntranceDelayMs] = useState<number | null>(entranceDelayMs ?? null);
@@ -68,17 +72,19 @@ export function QuotaCard(props: QuotaCardProps) {
   const loading = status === 'loading';
   const claudeReset = useClaudeResetGrants(
     file,
-    entry.type === 'claude' && status !== 'idle',
+    // Grant reads go out only after quota loaded, and share the request limiter.
+    entry.type === 'claude' && status === 'success',
     !canRefresh || loading || resetting,
     quota,
-    onRefresh
+    onRefresh,
+    displayName
   );
   const iconSrc = getAuthFileIcon(entry.type, resolvedTheme);
   const typeLabel = getTypeLabel(t, entry.type);
-  const errorMessage = resolveQuotaErrorMessage(
-    t,
-    quota?.errorStatus,
-    quota?.error || t('common.unknown_error')
+  const errorMessage = maskCredentialText(
+    resolveQuotaErrorMessage(t, quota?.errorStatus, quota?.error || t('common.unknown_error')),
+    file,
+    showEmails
   );
   const showReset =
     status === 'success' &&

@@ -12,7 +12,12 @@ import { KIMI_CONFIG } from './providers/kimi/data';
 import { META_CONFIG } from './providers/meta/data';
 import { XAI_CONFIG } from './providers/xai/data';
 import type { QuotaProviderType } from './providers/types';
-import { QUOTA_TAB_ORDER, type QuotaSortMode, type QuotaTabId } from './constants';
+import {
+  QUOTA_CORE_TAB_TYPES,
+  QUOTA_TAB_ORDER,
+  type QuotaSortMode,
+  type QuotaTabId,
+} from './constants';
 
 const QUOTA_FILTER_MAP: Record<QuotaProviderType, (file: AuthFileItem) => boolean> = {
   antigravity: ANTIGRAVITY_CONFIG.filterFn,
@@ -145,4 +150,30 @@ export function paginate<T>(items: T[], page: number, pageSize: number): QuotaPa
     currentPage,
     totalPages,
   };
+}
+
+/**
+ * Tabs to render: All, the core providers even at zero, and Devin or Meta only when
+ * they have credentials. `buildTabCounts` still counts every provider.
+ */
+export function visibleQuotaTabIds(counts: Record<string, number>): QuotaTabId[] {
+  return [
+    'all',
+    ...QUOTA_TAB_ORDER.filter(
+      (type) => QUOTA_CORE_TAB_TYPES.includes(type) || (counts[type] ?? 0) > 0
+    ),
+  ];
+}
+
+/**
+ * The tab to show. A stored tab that is no longer rendered falls back to All once
+ * the list has settled, leaving the stored preference untouched.
+ */
+export function resolveActiveQuotaTab(
+  stored: QuotaTabId,
+  visible: readonly QuotaTabId[],
+  listSettled: boolean
+): QuotaTabId {
+  if (visible.includes(stored) || !listSettled) return stored;
+  return 'all';
 }

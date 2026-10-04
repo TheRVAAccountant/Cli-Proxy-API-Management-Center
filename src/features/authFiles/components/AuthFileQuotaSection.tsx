@@ -13,7 +13,11 @@ import { isRuntimeOnlyAuthFile, type QuotaProviderType } from '@/features/authFi
 import { Button } from '@/components/ui/Button';
 import { IconRefreshCw } from '@/components/ui/icons';
 import { bindQuotaClasses } from '@/features/quota/types';
-import { QUOTA_ADAPTERS, type QuotaCardState } from '@/features/quota/providers';
+import {
+  QUOTA_ADAPTERS,
+  SINGLE_CREDENTIAL_FETCH_OPTIONS,
+  type QuotaCardState,
+} from '@/features/quota/providers';
 import styles from './AuthFileQuota.module.scss';
 
 /** 认证文件卡片外衣：紧凑额度样式绑定成类型化契约（缺键在模块初始化即抛）。 */
@@ -73,7 +77,8 @@ export function AuthFileQuotaSection(props: AuthFileQuotaSectionProps) {
     }));
 
     try {
-      const data = await adapter.fetchQuota(file, t);
+      // A per-card refresh is a person asking for this credential, so billable probes stay allowed.
+      const data = await adapter.fetchQuota(file, t, SINGLE_CREDENTIAL_FETCH_OPTIONS);
       commitIfQuotaCacheCurrent(cacheGeneration, () => {
         updateQuotaState((prev) => ({
           ...prev,

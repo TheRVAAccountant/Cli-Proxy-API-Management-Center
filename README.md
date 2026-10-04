@@ -38,6 +38,8 @@ From everyday configuration to troubleshooting, keep the essentials close at han
 
 The UI is bundled with [CLI Proxy API](https://github.com/router-for-me/CLIProxyAPI). No separate frontend deployment is needed for the standard setup.
 
+> Deploying this fork's panel to CLIProxyAPI on macOS or Linux? See [docs/fork-deployment.md](docs/fork-deployment.md).
+
 1. Start your CLI Proxy API service.
 2. Open `http://<host>:<api_port>/management.html`.
 3. Enter your **management key** and connect.

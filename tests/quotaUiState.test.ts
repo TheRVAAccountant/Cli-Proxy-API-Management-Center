@@ -77,4 +77,16 @@ describe('quota ui state', () => {
     storage.setItem(KEY, '"a string"');
     expect(readQuotaUiState()).toBeNull();
   });
+
+  test('round-trips the view preference without filling a default', () => {
+    writeQuotaUiState({ view: 'cards' });
+    expect(readQuotaUiState()).toEqual({ tab: undefined, sortMode: undefined, view: 'cards' });
+    writeQuotaUiState({ tab: 'claude' });
+    expect(readQuotaUiState()?.view).toBe('cards');
+  });
+
+  test('drops an unknown view so the page falls back to Ledger', () => {
+    storage.setItem(KEY, JSON.stringify({ view: 'mosaic' }));
+    expect(readQuotaUiState()?.view).toBeUndefined();
+  });
 });

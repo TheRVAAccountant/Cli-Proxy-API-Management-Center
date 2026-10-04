@@ -10,7 +10,7 @@ import type { TFunction } from 'i18next';
 import { useQuotaStore } from '@/stores';
 import type { AuthFileItem } from '@/types';
 import type { QuotaBodyProps } from '../types';
-import type { QuotaProviderType, QuotaStore } from './types';
+import type { QuotaFetchOptions, QuotaProviderType, QuotaStore } from './types';
 import { ANTIGRAVITY_CONFIG } from './antigravity/data';
 import { AntigravityQuotaBody } from './antigravity/AntigravityQuotaBody';
 import { CLAUDE_CONFIG } from './claude/data';
@@ -37,7 +37,7 @@ export interface QuotaAdapter {
   type: QuotaProviderType;
   i18nPrefix: string;
   filterFn: (file: AuthFileItem) => boolean;
-  fetchQuota: (file: AuthFileItem, t: TFunction) => Promise<unknown>;
+  fetchQuota: (file: AuthFileItem, t: TFunction, options: QuotaFetchOptions) => Promise<unknown>;
   enrichQuota?: (file: AuthFileItem, data: unknown, t: TFunction) => Promise<unknown>;
   resetQuota?: (file: AuthFileItem, t: TFunction) => Promise<unknown>;
   canResetQuota?: (quota: QuotaCardState) => boolean;
@@ -61,6 +61,15 @@ export const QUOTA_ADAPTERS: Record<QuotaProviderType, QuotaAdapter> = {
   meta: { ...META_CONFIG, Body: MetaQuotaBody } as unknown as QuotaAdapter,
   xai: { ...XAI_CONFIG, Body: XaiQuotaBody } as unknown as QuotaAdapter,
 };
+
+export {
+  BULK_FETCH_OPTIONS,
+  SINGLE_CREDENTIAL_FETCH_OPTIONS,
+  BillableProbeBlockedError,
+  allowsBillableProbe,
+  isBillableProbeBlockedError,
+} from './fetchOptions';
+export type { QuotaFetchOptions } from './fetchOptions';
 
 export type QuotaMapUpdater = (
   updater: (prev: Record<string, QuotaCardState>) => Record<string, QuotaCardState>

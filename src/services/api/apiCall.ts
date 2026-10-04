@@ -4,6 +4,7 @@
 
 import type { AxiosRequestConfig } from 'axios';
 import { apiClient } from './client';
+import { managementRequestLimiter } from './requestLimiter';
 import { isRecord } from '@/utils/helpers';
 
 export interface ApiCallRequest {
@@ -78,10 +79,9 @@ export const getApiCallErrorMessage = (result: ApiCallResult): string => {
 
 export const apiCallApi = {
   request: async (payload: ApiCallRequest, config?: AxiosRequestConfig): Promise<ApiCallResult> => {
-    const response = await apiClient.post<Record<string, unknown>>(
-      '/requests/api-call',
-      payload,
-      config
+    // Per-credential fan-out shares one concurrency cap (see requestLimiter).
+    const response = await managementRequestLimiter.run(() =>
+      apiClient.post<Record<string, unknown>>('/requests/api-call', payload, config)
     );
     const statusCode = Number(response?.status_code ?? 0);
     const header = (response?.header ?? {}) as Record<string, string[]>;

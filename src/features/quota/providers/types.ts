@@ -16,6 +16,9 @@ import type {
   MetaQuotaState,
   XaiQuotaState,
 } from '@/types';
+import type { QuotaFetchOptions } from './fetchOptions';
+
+export type { QuotaFetchOptions } from './fetchOptions';
 
 export type QuotaUpdater<T> = T | ((prev: T) => T);
 
@@ -45,7 +48,8 @@ export interface QuotaProviderData<TState, TData> {
   type: QuotaProviderType;
   i18nPrefix: string;
   filterFn: (file: AuthFileItem) => boolean;
-  fetchQuota: (file: AuthFileItem, t: TFunction) => Promise<TData>;
+  /** `options` is required so every caller states whether a billable probe is acceptable. */
+  fetchQuota: (file: AuthFileItem, t: TFunction, options: QuotaFetchOptions) => Promise<TData>;
   /** Optional details loaded only after the primary quota has been committed. */
   enrichQuota?: (file: AuthFileItem, data: TData, t: TFunction) => Promise<TData>;
   resetQuota?: (file: AuthFileItem, t: TFunction) => Promise<TData>;

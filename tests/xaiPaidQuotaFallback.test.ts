@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, test } from 'bun:test';
 import type { TFunction } from 'i18next';
+import { SINGLE_CREDENTIAL_FETCH_OPTIONS } from '@/features/quota/providers/fetchOptions';
 import { XAI_CONFIG } from '@/features/quota/providers/xai/data';
 import { apiCallApi, type ApiCallRequest, type ApiCallResult } from '@/services/api';
 import {
@@ -74,7 +75,8 @@ describe('xAI paid OAuth quota fallback', () => {
         using_api: true,
         prefix: 'paid',
       },
-      t
+      t,
+      SINGLE_CREDENTIAL_FETCH_OPTIONS
     );
 
     expect(requests.map((request) => request.url)).toEqual([XAI_API_ME_URL, XAI_API_CHAT_URL]);
@@ -120,7 +122,8 @@ describe('xAI paid OAuth quota fallback', () => {
 
     const summary = await XAI_CONFIG.fetchQuota(
       { name: 'free.json', type: 'xai', auth_index: 'xai:3', using_api: true },
-      t
+      t,
+      SINGLE_CREDENTIAL_FETCH_OPTIONS
     );
 
     expect(requests.map((request) => request.url).sort()).toEqual(
@@ -152,7 +155,8 @@ describe('xAI paid OAuth quota fallback', () => {
 
     const summary = await XAI_CONFIG.fetchQuota(
       { name: 'unknown.json', type: 'xai', auth_index: 'xai:4' },
-      t
+      t,
+      SINGLE_CREDENTIAL_FETCH_OPTIONS
     );
 
     expect(requests.map((request) => request.url)).toEqual([
@@ -171,7 +175,11 @@ describe('xAI paid OAuth quota fallback', () => {
     };
 
     await expect(
-      XAI_CONFIG.fetchQuota({ name: 'invalid.json', type: 'xai', auth_index: 'xai:5' }, t)
+      XAI_CONFIG.fetchQuota(
+        { name: 'invalid.json', type: 'xai', auth_index: 'xai:5' },
+        t,
+        SINGLE_CREDENTIAL_FETCH_OPTIONS
+      )
     ).rejects.toMatchObject({ status: 403 });
   });
 });

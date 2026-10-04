@@ -23,12 +23,14 @@ import {
   mergeXaiBillingSummaries,
   resolveXaiSubscriptionPlan,
   createStatusError,
+  getStatusFromError,
   isDisabledAuthFile,
   isPaidXaiAuthFile,
   isXaiFile,
 } from '@/utils/quota';
 import { normalizeAuthIndex } from '@/utils/authIndex';
-import type { QuotaProviderData } from '../types';
+import { BillableProbeBlockedError, allowsBillableProbe } from '../fetchOptions';
+import type { QuotaFetchOptions, QuotaProviderData } from '../types';
 
 const XAI_PAID_HEALTH_REQUEST_TIMEOUT_MS = 15000;
 const XAI_SUBSCRIPTION_REQUEST_TIMEOUT_MS = 8000;
@@ -201,14 +203,22 @@ const withSubscriptionPlan = (
   return { ...summary, planLabel: plan.label, planTier: plan.tier };
 };
 
-const fetchXaiQuota = async (file: AuthFileItem, t: TFunction): Promise<XaiBillingSummary> => {
+const fetchXaiQuota = async (
+  file: AuthFileItem,
+  t: TFunction,
+  options?: QuotaFetchOptions
+): Promise<XaiBillingSummary> => {
   const rawAuthIndex = file['auth_index'] ?? file.authIndex;
   const authIndex = normalizeAuthIndex(rawAuthIndex);
   if (!authIndex) {
     throw new Error(t('xai_quota.missing_auth_index'));
   }
 
+  // The paid-health probe is a real chat completion; only a per-credential action may send it.
+  const billable = allowsBillableProbe(options);
+
   if (isPaidXaiAuthFile(file)) {
+    if (!billable) throw new BillableProbeBlockedError(t('xai_quota.billable_probe_blocked'));
     return requestXaiPaidHealth(authIndex);
   }
 
@@ -226,6 +236,14 @@ const fetchXaiQuota = async (file: AuthFileItem, t: TFunction): Promise<XaiBilli
     weeklyResult.status === 'rejected' && monthlyResult.status === 'rejected'
       ? weeklyResult.reason
       : new Error(t('xai_quota.empty_data'));
+
+  // Paid accounts reach this point too: the credential list exposes no paid-tier signal, so
+  // their free billing probes fail first. Bulk loads stop before the billable fallback, except
+  // when the credential itself was rejected, which a paid probe would not fix.
+  if (!billable) {
+    if (getStatusFromError(billingError) === 401) throw billingError;
+    throw new BillableProbeBlockedError(t('xai_quota.billable_probe_blocked'), billingError);
+  }
 
   try {
     return await requestXaiPaidHealth(authIndex);

@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next';
-import { IconRefreshCw } from '@/components/ui/icons';
+import { IconEye, IconEyeOff, IconRefreshCw } from '@/components/ui/icons';
 import { useCountUp } from '@/hooks/motion';
 import styles from './QuotaHeader.module.scss';
 
@@ -10,6 +10,9 @@ export type QuotaHeaderProps = {
   refreshing: boolean;
   disableControls: boolean;
   onRefreshAll: () => void;
+  /** Whether credential emails are revealed; masked by default. */
+  showEmails: boolean;
+  onToggleEmails: () => void;
 };
 
 /**
@@ -20,8 +23,16 @@ export type QuotaHeaderProps = {
  * （标题 0ms → meta 70ms → 动作 140ms → tabs 210ms）。
  */
 export function QuotaHeader(props: QuotaHeaderProps) {
-  const { totalCount, loadedCount, attentionCount, refreshing, disableControls, onRefreshAll } =
-    props;
+  const {
+    totalCount,
+    loadedCount,
+    attentionCount,
+    refreshing,
+    disableControls,
+    onRefreshAll,
+    showEmails,
+    onToggleEmails,
+  } = props;
   const { t } = useTranslation();
   // 批量结果陆续落地时，「已加载」是页面上唯一滚动的数字
   const displayLoadedCount = useCountUp(loadedCount);
@@ -55,14 +66,31 @@ export function QuotaHeader(props: QuotaHeaderProps) {
         </p>
       </div>
       <div className={styles.actions} data-reveal>
+        {/* Fixed label; the pressed state carries the toggle (aria-pressed). */}
+        <button
+          type="button"
+          className={`${styles.ghostAction} ${showEmails ? styles.ghostActionPressed : ''}`}
+          aria-pressed={showEmails}
+          onClick={onToggleEmails}
+        >
+          {showEmails ? (
+            <IconEye size={15} aria-hidden="true" />
+          ) : (
+            <IconEyeOff size={15} aria-hidden="true" />
+          )}
+          {t('quota_management.show_emails')}
+        </button>
+        {/* Stays enabled while loads run: a click replaces queued automatic work. */}
         <button
           type="button"
           className={styles.primaryAction}
           onClick={onRefreshAll}
-          disabled={disableControls || refreshing}
+          disabled={disableControls}
+          aria-busy={refreshing}
+          aria-label={t('quota_management.refresh_all_credentials')}
         >
           <IconRefreshCw size={14} className={refreshing ? styles.spinning : undefined} />
-          {t('quota_management.refresh_all_credentials')}
+          {t('common.refresh')}
         </button>
       </div>
     </header>

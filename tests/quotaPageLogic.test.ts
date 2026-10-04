@@ -8,8 +8,10 @@ import {
   filterEntriesBySearch,
   isQuotaRefreshDisabled,
   paginate,
+  resolveActiveQuotaTab,
   resolveQuotaProviderType,
   sortQuotaEntries,
+  visibleQuotaTabIds,
   type QuotaFileEntry,
 } from '@/features/quota/logic';
 import type { AuthFileItem } from '@/types';
@@ -249,5 +251,41 @@ describe('sortQuotaEntries', () => {
     const last = entries[entries.length - 1].file.name;
     const sorted = sortQuotaEntries(entries, 'soonest', resolver({ [last]: 1 }));
     expect(paginate(sorted, 1, 2).pageItems[0].file.name).toBe(last);
+  });
+});
+
+describe('quota tab visibility', () => {
+  const zero = { claude: 0, antigravity: 0, codex: 0, xai: 0, kimi: 0, devin: 0, meta: 0 };
+
+  test('always shows the core providers and hides Devin and Meta at zero', () => {
+    expect(visibleQuotaTabIds(zero)).toEqual([
+      'all',
+      'claude',
+      'antigravity',
+      'codex',
+      'xai',
+      'kimi',
+    ]);
+  });
+
+  test('shows Devin or Meta once they have credentials, in tab order', () => {
+    expect(visibleQuotaTabIds({ ...zero, devin: 2 })).toEqual([
+      'all',
+      'claude',
+      'antigravity',
+      'codex',
+      'xai',
+      'kimi',
+      'devin',
+    ]);
+    expect(visibleQuotaTabIds({ ...zero, meta: 1 }).at(-1)).toBe('meta');
+  });
+
+  test('Covers AE7. a stored hidden tab falls back to All once the list settles', () => {
+    const visible = visibleQuotaTabIds(zero);
+    expect(resolveActiveQuotaTab('devin', visible, true)).toBe('all');
+    expect(resolveActiveQuotaTab('devin', visible, false)).toBe('devin');
+    expect(resolveActiveQuotaTab('codex', visible, true)).toBe('codex');
+    expect(resolveActiveQuotaTab('antigravity', visible, true)).toBe('antigravity');
   });
 });
