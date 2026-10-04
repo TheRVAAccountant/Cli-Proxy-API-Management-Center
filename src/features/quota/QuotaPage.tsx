@@ -27,6 +27,9 @@ import { ProviderTabs } from '@/features/authFiles/components/ProviderTabs';
 import { QuotaHeader } from './components/QuotaHeader';
 import { QuotaCard } from './components/QuotaCard';
 import { QuotaTimeline } from './components/QuotaTimeline';
+import { QuotaSummaryStrip } from './components/QuotaSummaryStrip';
+import { buildProviderSummaries, type SummaryCredential } from './summary';
+import { projectCredentialQuota, type CredentialQuotaProjection } from './windowProjection';
 import {
   CARD_ENTRANCE_BUDGET_MS,
   DEFAULT_QUOTA_VIEW_MODE,
@@ -193,9 +196,41 @@ export function QuotaPage() {
   });
   // A stored Devin or Meta tab with no credentials shows All without rewriting storage.
   const activeTab = resolveActiveQuotaTab(tab, tabIds, listSettled);
+  const tabEntries = useMemo(() => filterEntriesByTab(entries, activeTab), [entries, activeTab]);
   const filteredEntries = useMemo(
-    () => filterEntriesBySearch(filterEntriesByTab(entries, activeTab), search),
-    [entries, activeTab, search]
+    () => filterEntriesBySearch(tabEntries, search),
+    [tabEntries, search]
+  );
+
+  // Display projections tick with the shared minute clock (passed resets, countdowns);
+  // the clock never feeds loading effects.
+  const displayNow = useNow();
+  const projections = useMemo(() => {
+    const map = new Map<string, CredentialQuotaProjection>();
+    entries.forEach((entry) =>
+      map.set(
+        getQuotaCacheKey(entry.file),
+        projectCredentialQuota(entry.type, getQuota(entry), t, displayNow)
+      )
+    );
+    return map;
+  }, [displayNow, entries, getQuota, t]);
+  // The strip covers the whole tab, ignoring search and pagination.
+  const summaries = useMemo(() => {
+    const byProvider = new Map<QuotaProviderType, SummaryCredential[]>();
+    tabEntries.forEach((entry) => {
+      const key = getQuotaCacheKey(entry.file);
+      const projection = projections.get(key);
+      if (!projection) return;
+      const list = byProvider.get(entry.type) ?? [];
+      list.push({ key, projection });
+      byProvider.set(entry.type, list);
+    });
+    return buildProviderSummaries(QUOTA_TAB_ORDER, byProvider, displayNow);
+  }, [displayNow, projections, tabEntries]);
+  const labelForKey = useCallback(
+    (key: string) => credentialLabels.get(key) ?? key,
+    [credentialLabels]
   );
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value);
@@ -420,6 +455,16 @@ export function QuotaPage() {
             />
           </div>
         </div>
+
+        {loading && entries.length === 0 ? (
+          <Skeleton height={132} rounded={14} />
+        ) : (
+          <QuotaSummaryStrip
+            summaries={summaries}
+            resolvedTheme={resolvedTheme}
+            labelFor={labelForKey}
+          />
+        )}
 
         <div className={styles.toolbar}>
           <div className={styles.search}>

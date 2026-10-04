@@ -22,6 +22,9 @@ describe('quota toolbar presentation contracts', () => {
     const searchStart = source.indexOf('<div className={styles.search}>');
     const sortStart = source.indexOf('<div className={styles.sort}>');
     expect(toolbarStart).toBeGreaterThan(source.indexOf('<ProviderTabs'));
+    // The summary strip sits between the tabs and the search-and-sort toolbar.
+    expect(source.indexOf('<QuotaSummaryStrip')).toBeGreaterThan(source.indexOf('<ProviderTabs'));
+    expect(toolbarStart).toBeGreaterThan(source.indexOf('<QuotaSummaryStrip'));
     expect(searchStart).toBeGreaterThan(toolbarStart);
     expect(sortStart).toBeGreaterThan(searchStart);
     expect(styles).toMatch(/\.toolbar\s*\{[^}]*flex-wrap: wrap;/);
