@@ -1587,7 +1587,11 @@
     "weekday_wed": "Ср",
     "weekday_thu": "Чт",
     "weekday_fri": "Пт",
-    "weekday_sat": "Сб"
+    "weekday_sat": "Сб",
+    "show_emails": "Показать почту",
+    "view_label": "Вид",
+    "view_ledger": "Реестр",
+    "view_cards": "Карточки"
   },
   "plugin_management": {
     "title": "Управление плагинами",

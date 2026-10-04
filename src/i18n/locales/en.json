@@ -1584,7 +1584,11 @@
     "weekday_wed": "Wed",
     "weekday_thu": "Thu",
     "weekday_fri": "Fri",
-    "weekday_sat": "Sat"
+    "weekday_sat": "Sat",
+    "show_emails": "Show emails",
+    "view_label": "View",
+    "view_ledger": "Ledger",
+    "view_cards": "Cards"
   },
   "plugin_management": {
     "title": "Plugin Management",

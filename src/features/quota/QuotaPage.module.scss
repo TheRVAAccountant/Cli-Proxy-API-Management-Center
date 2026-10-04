@@ -36,6 +36,11 @@
   }
 }
 
+/* The view selector keeps its width while the tab strip scrolls. */
+.viewSelect {
+  flex: 0 0 auto;
+}
+
 .toolbar {
   display: flex;
   align-items: center;

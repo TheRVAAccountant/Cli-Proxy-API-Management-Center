@@ -29,11 +29,14 @@ import { QuotaCard } from './components/QuotaCard';
 import { QuotaTimeline } from './components/QuotaTimeline';
 import {
   CARD_ENTRANCE_BUDGET_MS,
+  DEFAULT_QUOTA_VIEW_MODE,
   QUOTA_PAGE_SIZE,
   QUOTA_SORT_MODES,
   QUOTA_TAB_ORDER,
+  QUOTA_VIEW_MODES,
   type QuotaSortMode,
   type QuotaTabId,
+  type QuotaViewMode,
 } from './constants';
 import {
   buildTabCounts,
@@ -42,7 +45,9 @@ import {
   filterEntriesByTab,
   filterEntriesBySearch,
   paginate,
+  resolveActiveQuotaTab,
   sortQuotaEntries,
+  visibleQuotaTabIds,
   type QuotaFileEntry,
 } from './logic';
 import { nextRecoveryMs } from './resetSchedule';
@@ -56,7 +61,6 @@ import { readQuotaUiState, writeQuotaUiState } from './uiState';
 import { buildCredentialLabels, credentialDisplayLabel } from './credentialLabel';
 import styles from './QuotaPage.module.scss';
 
-const TAB_IDS: string[] = ['all', ...QUOTA_TAB_ORDER];
 const SKELETON_CARD_COUNT = 6;
 
 export function QuotaPage() {
@@ -161,7 +165,8 @@ export function QuotaPage() {
   const entries = useMemo(() => classifyQuotaFiles(files), [files]);
 
   // Emails stay masked until the viewer asks; every visit starts masked.
-  const [showEmails] = useState(false);
+  const [showEmails, setShowEmails] = useState(false);
+  const handleToggleEmails = useCallback(() => setShowEmails((shown) => !shown), []);
   const credentialLabels = useMemo(
     () =>
       buildCredentialLabels(
@@ -178,9 +183,19 @@ export function QuotaPage() {
   const displayNameFor = useCallback((entry: QuotaFileEntry) => labelFor(entry.file), [labelFor]);
   const actionLabels = useMemo(() => ({ labelFor, showEmails }), [labelFor, showEmails]);
   const tabCounts = useMemo(() => buildTabCounts(entries), [entries]);
+  const tabIds = useMemo(() => visibleQuotaTabIds(tabCounts), [tabCounts]);
+  const listSettled = isQuotaListSettled({
+    connected: connectionStatus === 'connected',
+    loading,
+    hasError: Boolean(error),
+    filesGeneration,
+    sessionGeneration,
+  });
+  // A stored Devin or Meta tab with no credentials shows All without rewriting storage.
+  const activeTab = resolveActiveQuotaTab(tab, tabIds, listSettled);
   const filteredEntries = useMemo(
-    () => filterEntriesBySearch(filterEntriesByTab(entries, tab), search),
-    [entries, tab, search]
+    () => filterEntriesBySearch(filterEntriesByTab(entries, activeTab), search),
+    [entries, activeTab, search]
   );
   const handleSearchChange = useCallback((value: string) => {
     setSearch(value);
@@ -207,6 +222,19 @@ export function QuotaPage() {
     setPage(1);
     writeQuotaUiState({ tab: next as QuotaTabId });
   }, []);
+
+  const [view, setView] = useState<QuotaViewMode>(
+    () => readQuotaUiState()?.view ?? DEFAULT_QUOTA_VIEW_MODE
+  );
+  const handleViewChange = useCallback((next: string) => {
+    setView(next as QuotaViewMode);
+    writeQuotaUiState({ view: next as QuotaViewMode });
+  }, []);
+  const viewOptions = useMemo(
+    () =>
+      QUOTA_VIEW_MODES.map((mode) => ({ value: mode, label: t(`quota_management.view_${mode}`) })),
+    [t]
+  );
 
   const handleSortModeChange = useCallback((next: string) => {
     setSortMode(next as QuotaSortMode);
@@ -272,13 +300,7 @@ export function QuotaPage() {
   // Quota loads by itself once the credential list for this session has settled.
   useQuotaAutoLoad({
     entries,
-    settled: isQuotaListSettled({
-      connected: connectionStatus === 'connected',
-      loading,
-      hasError: Boolean(error),
-      filesGeneration,
-      sessionGeneration,
-    }),
+    settled: listSettled,
     sessionGeneration,
     loadQuota,
     isPendingNow,
@@ -373,18 +395,30 @@ export function QuotaPage() {
         refreshing={loading || batchLoading}
         disableControls={disableControls}
         onRefreshAll={handleRefreshAll}
+        showEmails={showEmails}
+        onToggleEmails={handleToggleEmails}
       />
 
       <section className={styles.workbench}>
         {/* 提供商导航与搜索工具栏分层，避免不同控件争夺视觉焦点。 */}
         <div className={styles.tabsRow} data-reveal>
           <ProviderTabs
-            types={TAB_IDS}
+            types={tabIds}
             counts={tabCounts}
-            active={tab}
+            active={activeTab}
             resolvedTheme={resolvedTheme}
             onChange={handleTabChange}
           />
+          {/* After the tab strip so it stays put while the tabs scroll. */}
+          <div className={styles.viewSelect}>
+            <Select
+              value={view}
+              options={viewOptions}
+              onChange={handleViewChange}
+              ariaLabel={t('quota_management.view_label')}
+              size="sm"
+            />
+          </div>
         </div>
 
         <div className={styles.toolbar}>
@@ -442,23 +476,23 @@ export function QuotaPage() {
             title={
               search.trim()
                 ? t('quota_management.search_empty_title')
-                : tab === 'all'
+                : activeTab === 'all'
                   ? t('quota_management.empty_title')
-                  : t(`${QUOTA_ADAPTERS[tab].i18nPrefix}.empty_title`)
+                  : t(`${QUOTA_ADAPTERS[activeTab].i18nPrefix}.empty_title`)
             }
             description={
               search.trim()
                 ? t('quota_management.search_empty_desc')
-                : tab === 'all'
+                : activeTab === 'all'
                   ? t('quota_management.empty_desc')
-                  : t(`${QUOTA_ADAPTERS[tab].i18nPrefix}.empty_desc`)
+                  : t(`${QUOTA_ADAPTERS[activeTab].i18nPrefix}.empty_desc`)
             }
             action={
               search.trim() ? (
                 <Button variant="secondary" size="sm" onClick={() => handleSearchChange('')}>
                   {t('quota_management.search_clear')}
                 </Button>
-              ) : tab === 'all' ? undefined : (
+              ) : activeTab === 'all' ? undefined : (
                 <Button variant="secondary" size="sm" onClick={() => handleTabChange('all')}>
                   {t('auth_files.filter_all')}
                 </Button>

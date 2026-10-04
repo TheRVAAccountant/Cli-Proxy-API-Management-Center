@@ -1582,7 +1582,11 @@
     "weekday_wed": "三",
     "weekday_thu": "四",
     "weekday_fri": "五",
-    "weekday_sat": "六"
+    "weekday_sat": "六",
+    "show_emails": "显示邮箱",
+    "view_label": "视图",
+    "view_ledger": "台账",
+    "view_cards": "卡片"
   },
   "plugin_management": {
     "title": "插件管理",
