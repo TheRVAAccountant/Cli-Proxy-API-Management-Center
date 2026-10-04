@@ -7,9 +7,23 @@ on:
       - main
       - dev
 
+permissions:
+  contents: read
+
 jobs:
   verify:
-    runs-on: ubuntu-latest
+    name: verify (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+
+    # The UI ships as one platform-neutral management.html, but contributors and
+    # CLIProxyAPI hosts run on both Linux amd64 and macOS, so the toolchain is
+    # proven on each. ubuntu-latest is x86_64; macos-latest is Apple Silicon.
+    strategy:
+      fail-fast: false
+      matrix:
+        os:
+          - ubuntu-latest
+          - macos-latest
 
     steps:
       - name: Checkout code
