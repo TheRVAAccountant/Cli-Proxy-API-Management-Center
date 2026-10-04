@@ -1,6 +1,8 @@
 import { describe, expect, test } from 'bun:test';
 import { createElement } from 'react';
 import { renderToStaticMarkup } from 'react-dom/server';
+import { createInstance } from 'i18next';
+import { I18nextProvider } from 'react-i18next';
 import {
   readModelOptions,
   buildModelOptions,
@@ -9,6 +11,11 @@ import {
 import { ModelAdvancedFields } from '@/features/providers/sheets/forms/ModelAdvancedFields';
 import type { ModelEntryInput, ProviderBrand } from '@/features/providers/types';
 import type { ModelAlias } from '@/types';
+
+// A resource-free instance keeps keys untranslated regardless of which suite
+// initialized the global i18next singleton earlier in the same bun process.
+const keyOnlyI18n = createInstance();
+await keyOnlyI18n.init({ lng: 'en', resources: {} });
 
 const draft = (model: ModelAlias): ModelEntryInput => ({
   name: model.name,
@@ -174,13 +181,17 @@ describe('provider model options', () => {
 
   const render = (brand: ProviderBrand, disabled = false, enabled = true) =>
     renderToStaticMarkup(
-      createElement(ModelAdvancedFields, {
-        entry: { name: 'model', thinkingEnabled: enabled },
-        providerBrand: brand,
-        disabled,
-        supportsThinking: true,
-        onUpdate: () => {},
-      })
+      createElement(
+        I18nextProvider,
+        { i18n: keyOnlyI18n },
+        createElement(ModelAdvancedFields, {
+          entry: { name: 'model', thinkingEnabled: enabled },
+          providerBrand: brand,
+          disabled,
+          supportsThinking: true,
+          onUpdate: () => {},
+        })
+      )
     );
 
   test('gates fields by provider capability', () => {
