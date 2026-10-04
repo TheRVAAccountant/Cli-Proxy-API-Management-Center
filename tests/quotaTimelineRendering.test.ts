@@ -5,6 +5,7 @@ import '../src/i18n/index';
 import { QuotaTimeline } from '../src/features/quota/components/QuotaTimeline';
 import type { QuotaFileEntry } from '../src/features/quota/logic';
 import { buildKimiQuotaRows } from '../src/utils/quota';
+import { credentialDisplayLabel } from '../src/features/quota/credentialLabel';
 
 const entries: QuotaFileEntry[] = [
   {
@@ -15,7 +16,7 @@ const entries: QuotaFileEntry[] = [
 
 const baseProps = {
   entries,
-  displayNameFor: (name: string) => name,
+  displayNameFor: (entry: QuotaFileEntry) => entry.file.name,
   resolvedTheme: 'light' as const,
   now: new Date(2026, 6, 29, 12).getTime(),
 };
@@ -101,7 +102,7 @@ describe('QuotaTimeline rendering', () => {
             type: 'kimi',
           },
         ],
-        displayNameFor: (name: string) => name,
+        displayNameFor: (entry: QuotaFileEntry) => entry.file.name,
         resolvedTheme: 'light',
         now: new Date('2099-07-31T04:40:00Z').getTime(),
         initialMode: 'session',
@@ -122,7 +123,7 @@ describe('QuotaTimeline rendering', () => {
             type: 'codex',
           },
         ],
-        displayNameFor: (name: string) => name,
+        displayNameFor: (entry: QuotaFileEntry) => entry.file.name,
         resolvedTheme: 'light',
         now: new Date(2026, 6, 29, 12).getTime(),
         quotaFor: () => ({
@@ -160,5 +161,32 @@ describe('QuotaTimeline rendering', () => {
     );
 
     expect(markup).toBe('');
+  });
+  test('renders lane names from the entry-based label, including masked Devin lanes', () => {
+    const devin: QuotaFileEntry = {
+      file: { name: 'devin-sam@team.io.json', type: 'devin', email: 'sam@team.io', authIndex: '7' },
+      type: 'devin',
+    };
+    const markup = renderToStaticMarkup(
+      createElement(QuotaTimeline, {
+        ...baseProps,
+        entries: [devin],
+        displayNameFor: (entry: QuotaFileEntry) => credentialDisplayLabel(entry.file, false),
+        quotaFor: () => ({
+          status: 'success',
+          windows: [
+            {
+              id: 'weekly',
+              remainingPercent: 60,
+              resetAtMs: new Date(2026, 7, 1, 12).getTime(),
+              periodHours: 168,
+            },
+          ],
+        }),
+      })
+    );
+
+    expect(markup).toContain('devin-s•••@t•••.io.json · s•••@t•••.io');
+    expect(markup).not.toContain('sam@team.io');
   });
 });

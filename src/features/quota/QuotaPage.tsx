@@ -51,16 +51,11 @@ import { useDevinQuotaAutoLoad } from './providers/devin/useDevinQuotaAutoLoad';
 import { useQuotaActions } from './hooks/useQuotaActions';
 import { useQuotaBatchLoader } from './hooks/useQuotaBatchLoader';
 import { readQuotaUiState, writeQuotaUiState } from './uiState';
+import { buildCredentialLabels, credentialDisplayLabel } from './credentialLabel';
 import styles from './QuotaPage.module.scss';
 
 const TAB_IDS: string[] = ['all', ...QUOTA_TAB_ORDER];
 const SKELETON_CARD_COUNT = 6;
-
-/**
- * Existing providers display filenames; Devin's card and timeline share an
- * identity-aware display label. Keep the filename fallback stable for memoization.
- */
-const displayNameFor = (name: string) => name;
 
 export function QuotaPage() {
   const { t } = useTranslation();
@@ -162,6 +157,24 @@ export function QuotaPage() {
   const sortNow = sortMode === 'default' ? 0 : tick;
 
   const entries = useMemo(() => classifyQuotaFiles(files), [files]);
+
+  // Emails stay masked until the viewer asks; every visit starts masked.
+  const [showEmails] = useState(false);
+  const credentialLabels = useMemo(
+    () =>
+      buildCredentialLabels(
+        entries.map((entry) => entry.file),
+        showEmails
+      ),
+    [entries, showEmails]
+  );
+  const labelFor = useCallback(
+    (file: AuthFileItem) =>
+      credentialLabels.get(getQuotaCacheKey(file)) ?? credentialDisplayLabel(file, showEmails),
+    [credentialLabels, showEmails]
+  );
+  const displayNameFor = useCallback((entry: QuotaFileEntry) => labelFor(entry.file), [labelFor]);
+  const actionLabels = useMemo(() => ({ labelFor, showEmails }), [labelFor, showEmails]);
   const tabCounts = useMemo(() => buildTabCounts(entries), [entries]);
   const filteredEntries = useMemo(
     () => filterEntriesBySearch(filterEntriesByTab(entries, tab), search),
@@ -240,7 +253,10 @@ export function QuotaPage() {
   /* ---------- 加载与操作 ---------- */
 
   const { batchLoading, loadQuota } = useQuotaBatchLoader();
-  const { resettingQuotaName, refreshQuota, resetQuota } = useQuotaActions(disableControls);
+  const { resettingQuotaName, refreshQuota, resetQuota } = useQuotaActions(
+    disableControls,
+    actionLabels
+  );
 
   const pendingRefreshRef = useRef<number | null>(null);
   const prevLoadingRef = useRef(loading);
@@ -419,6 +435,8 @@ export function QuotaPage() {
               <QuotaCard
                 key={`${entry.type}:${getQuotaCacheKey(entry.file)}`}
                 entry={entry}
+                displayName={displayNameFor(entry)}
+                showEmails={showEmails}
                 quota={getQuota(entry)}
                 resolvedTheme={resolvedTheme}
                 canRefresh={canUseActions && !entry.file.disabled}
