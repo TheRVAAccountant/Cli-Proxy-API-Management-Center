@@ -36,6 +36,8 @@ describe('quota plan labels', () => {
 
   test('Codex maps normalized plan types and keeps unknown ones verbatim', () => {
     expect(getCodexPlanLabel('pro', t)).toBe('codex_quota.plan_pro');
+    expect(getCodexPlanLabel('promax', t)).toBe('codex_quota.plan_promax');
+    expect(getCodexPlanLabel('Pro_Max', t)).toBe('codex_quota.plan_promax');
     expect(getCodexPlanLabel('plus', t)).toBe('codex_quota.plan_plus');
     expect(getCodexPlanLabel('team', t)).toBe('codex_quota.plan_team');
     expect(getCodexPlanLabel('free', t)).toBe('codex_quota.plan_free');
