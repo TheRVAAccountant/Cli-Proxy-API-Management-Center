@@ -23,11 +23,15 @@ import { useRevealGroup } from '@/hooks/motion';
 import { useAuthStore, useQuotaStore, useThemeStore } from '@/stores';
 import type { AuthFileItem, ResolvedTheme } from '@/types';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
+import { isPaidXaiAuthFile, resolveQuotaErrorMessage } from '@/utils/quota';
 import { ProviderTabs } from '@/features/authFiles/components/ProviderTabs';
 import { QuotaHeader } from './components/QuotaHeader';
 import { QuotaCard } from './components/QuotaCard';
 import { QuotaTimeline } from './components/QuotaTimeline';
 import { QuotaSummaryStrip } from './components/QuotaSummaryStrip';
+import { QuotaLedger, type QuotaLedgerGroupModel } from './components/QuotaLedger';
+import { groupLedgerEntries, orderEntriesByKeys, resolveLedgerRowState } from './ledger';
+import { maskCredentialText } from './credentialLabel';
 import { buildProviderSummaries, type SummaryCredential } from './summary';
 import { projectCredentialQuota, type CredentialQuotaProjection } from './windowProjection';
 import {
@@ -321,12 +325,27 @@ export function QuotaPage() {
     () => new Set(entries.map((entry) => getQuotaCacheKey(entry.file))),
     [entries]
   );
+  // Credentials on screen load first: every filtered row in Ledger, the current page in Cards.
   const visibleKeys = useMemo(
-    () => new Set(pageItems.map((entry) => getQuotaCacheKey(entry.file))),
-    [pageItems]
+    () =>
+      new Set(
+        (view === 'ledger' ? filteredEntries : pageItems).map((entry) =>
+          getQuotaCacheKey(entry.file)
+        )
+      ),
+    [filteredEntries, pageItems, view]
   );
   const loader = useQuotaBatchLoader({ liveKeys, visibleKeys });
-  const { batchLoading, loadQuota, isPendingNow, wasAttempted } = loader;
+  const {
+    batchLoading,
+    loadQuota,
+    isPendingNow,
+    wasAttempted,
+    queuedKeys,
+    inFlightKeys,
+    notLoaded,
+    stop,
+  } = loader;
   const { resettingQuotaName, refreshQuota, resetQuota } = useQuotaActions(
     disableControls,
     actionLabels
@@ -421,6 +440,86 @@ export function QuotaPage() {
 
   const isEmpty = !loading && filteredEntries.length === 0;
 
+  // Ledger rows do not jump while results arrive: soonest order is recomputed when the
+  // batch drains.
+  const liveSortedKeys = useMemo(
+    () => sortedEntries.map((entry) => getQuotaCacheKey(entry.file)),
+    [sortedEntries]
+  );
+  const [ledgerOrder, setLedgerOrder] = useState<readonly string[]>([]);
+  useEffect(() => {
+    if (!batchLoading) setLedgerOrder(liveSortedKeys);
+  }, [batchLoading, liveSortedKeys]);
+  const ledgerEntries = useMemo(
+    () =>
+      sortMode === 'soonest' ? orderEntriesByKeys(filteredEntries, ledgerOrder) : sortedEntries,
+    [filteredEntries, ledgerOrder, sortMode, sortedEntries]
+  );
+  const ledgerGroups = useMemo<QuotaLedgerGroupModel[]>(
+    () =>
+      groupLedgerEntries(ledgerEntries).map((group) => ({
+        type: group.type,
+        rows: group.entries.map((entry) => {
+          const key = getQuotaCacheKey(entry.file);
+          const projection =
+            projections.get(key) ?? projectCredentialQuota(entry.type, undefined, t, displayNow);
+          const state = resolveLedgerRowState({
+            status: projection.status,
+            queued: queuedKeys.has(key),
+            notLoadedReason: notLoaded.get(key) ?? null,
+            billableOnly: entry.type === 'xai' && isPaidXaiAuthFile(entry.file),
+          });
+          const quota = getQuota(entry);
+          return {
+            key,
+            entry,
+            label: labelForKey(key),
+            projection,
+            state,
+            errorMessage:
+              state.kind === 'error'
+                ? maskCredentialText(
+                    resolveQuotaErrorMessage(
+                      t,
+                      quota?.errorStatus,
+                      quota?.error || t('common.unknown_error')
+                    ),
+                    entry.file,
+                    showEmails
+                  )
+                : null,
+            canRefresh: canUseActions && !entry.file.disabled,
+            inFlight: inFlightKeys.has(key),
+          };
+        }),
+      })),
+    [
+      canUseActions,
+      displayNow,
+      getQuota,
+      inFlightKeys,
+      labelForKey,
+      ledgerEntries,
+      notLoaded,
+      projections,
+      queuedKeys,
+      showEmails,
+      t,
+    ]
+  );
+
+  // One polite announcement when a batch drains, for screen readers in either view.
+  const [loadAnnouncement, setLoadAnnouncement] = useState('');
+  const wasBatchLoadingRef = useRef(false);
+  useEffect(() => {
+    if (wasBatchLoadingRef.current && !batchLoading) {
+      setLoadAnnouncement(
+        t('quota_management.load_finished', { loaded: loadedCount, count: entries.length })
+      );
+    }
+    wasBatchLoadingRef.current = batchLoading;
+  }, [batchLoading, entries.length, loadedCount, t]);
+
   return (
     <div className={styles.page} ref={revealRef}>
       <QuotaHeader
@@ -510,12 +609,32 @@ export function QuotaPage() {
           </div>
         )}
 
-        {loading ? (
-          <div className={styles.grid} aria-hidden="true">
-            {Array.from({ length: SKELETON_CARD_COUNT }, (_, index) => (
-              <Skeleton key={index} height={168} rounded={14} />
-            ))}
+        {stop && (
+          <div className={styles.errorBanner} role="alert">
+            {t(
+              stop === 'blocked' ? 'quota_management.stop_blocked' : 'quota_management.stop_offline'
+            )}
           </div>
+        )}
+
+        <div className={styles.srOnly} aria-live="polite">
+          {loadAnnouncement}
+        </div>
+
+        {loading ? (
+          view === 'ledger' ? (
+            <div className={styles.ledgerSkeleton} aria-hidden="true">
+              {Array.from({ length: SKELETON_CARD_COUNT }, (_, index) => (
+                <Skeleton key={index} height={58} rounded={10} />
+              ))}
+            </div>
+          ) : (
+            <div className={styles.grid} aria-hidden="true">
+              {Array.from({ length: SKELETON_CARD_COUNT }, (_, index) => (
+                <Skeleton key={index} height={168} rounded={14} />
+              ))}
+            </div>
+          )
         ) : isEmpty ? (
           <EmptyState
             title={
@@ -544,6 +663,12 @@ export function QuotaPage() {
               )
             }
           />
+        ) : view === 'ledger' ? (
+          <QuotaLedger
+            groups={ledgerGroups}
+            resolvedTheme={resolvedTheme}
+            onRefresh={handleRowRefresh}
+          />
         ) : (
           <div className={styles.grid}>
             {pageItems.map((entry, index) => (
@@ -564,7 +689,7 @@ export function QuotaPage() {
           </div>
         )}
 
-        {!loading && filteredEntries.length > QUOTA_PAGE_SIZE && (
+        {view === 'cards' && !loading && filteredEntries.length > QUOTA_PAGE_SIZE && (
           <div className={styles.pagination}>
             <Button
               variant="secondary"
@@ -593,12 +718,14 @@ export function QuotaPage() {
         )}
 
         {/* 时间线只比较当前页凭证，避免大量凭证一次性生成无界泳道。 */}
-        <QuotaTimeline
-          entries={pageItems}
-          quotaFor={getQuota}
-          displayNameFor={displayNameFor}
-          resolvedTheme={resolvedTheme}
-        />
+        {view === 'cards' && (
+          <QuotaTimeline
+            entries={pageItems}
+            quotaFor={getQuota}
+            displayNameFor={displayNameFor}
+            resolvedTheme={resolvedTheme}
+          />
+        )}
       </section>
     </div>
   );

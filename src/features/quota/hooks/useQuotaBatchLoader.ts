@@ -109,6 +109,7 @@ export function useQuotaBatchLoader({ liveKeys, visibleKeys }: QuotaBatchLoaderO
       isPendingNow,
       wasAttempted,
       queuedKeys: state.queued,
+      inFlightKeys: state.inFlight,
       notLoaded: state.notLoaded,
       stop: state.stop,
     }),

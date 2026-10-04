@@ -1629,7 +1629,19 @@
     "summary_show_label": "展開更多 {{provider}} 配額",
     "summary_hide_label": "收合更多 {{provider}} 配額",
     "no_reset_pending": "暫無待重置",
-    "reset_passed": "已過重置時間"
+    "reset_passed": "已過重置時間",
+    "ledger_queued": "排隊中",
+    "ledger_loading": "正在載入配額…",
+    "ledger_not_loaded": "未載入",
+    "ledger_rate_limited": "因觸發限流已暫停。可單獨重新整理此憑證重試。",
+    "ledger_stopped": "載入已停止。點擊「重新整理」重試。",
+    "ledger_window_absent": "此方案不提供該配額",
+    "ledger_overflow": "+{{count}}",
+    "ledger_overflow_label": "+{{count}} 項更多配額：{{name}}",
+    "ledger_refresh_label": "重新整理配額：{{name}}",
+    "load_finished": "已載入 {{loaded}}/{{count}} 個憑證的配額",
+    "stop_blocked": "後端暫時拒絕來自此位址的管理請求，載入已停止。點擊「重新整理」重試。",
+    "stop_offline": "與後端的連線已中斷，載入已停止。點擊「重新整理」重試。"
   },
   "plugin_management": {
     "title": "插件管理",

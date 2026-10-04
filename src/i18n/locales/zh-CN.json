@@ -1603,7 +1603,19 @@
     "summary_show_label": "展开更多 {{provider}} 额度",
     "summary_hide_label": "收起更多 {{provider}} 额度",
     "no_reset_pending": "暂无待重置",
-    "reset_passed": "已过重置时间"
+    "reset_passed": "已过重置时间",
+    "ledger_queued": "排队中",
+    "ledger_loading": "正在加载额度…",
+    "ledger_not_loaded": "未加载",
+    "ledger_rate_limited": "因触发限流已暂停。可单独刷新此凭证重试。",
+    "ledger_stopped": "加载已停止。点击“刷新”重试。",
+    "ledger_window_absent": "此套餐不提供该额度",
+    "ledger_overflow": "+{{count}}",
+    "ledger_overflow_label": "+{{count}} 项更多额度：{{name}}",
+    "ledger_refresh_label": "刷新额度：{{name}}",
+    "load_finished": "已加载 {{loaded}}/{{count}} 个凭证的额度",
+    "stop_blocked": "后端暂时拒绝来自此地址的管理请求，加载已停止。点击“刷新”重试。",
+    "stop_offline": "与后端的连接已断开，加载已停止。点击“刷新”重试。"
   },
   "plugin_management": {
     "title": "插件管理",

@@ -36,6 +36,21 @@
   }
 }
 
+.ledgerSkeleton {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.srOnly {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip: rect(0 0 0 0);
+  white-space: nowrap;
+}
+
 /* The view selector keeps its width while the tab strip scrolls. */
 .viewSelect {
   flex: 0 0 auto;

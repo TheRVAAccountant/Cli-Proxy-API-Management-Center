@@ -1605,7 +1605,19 @@
     "summary_show_label": "Show more {{provider}} limits",
     "summary_hide_label": "Hide more {{provider}} limits",
     "no_reset_pending": "No reset pending",
-    "reset_passed": "Reset passed"
+    "reset_passed": "Reset passed",
+    "ledger_queued": "Queued",
+    "ledger_loading": "Loading quota…",
+    "ledger_not_loaded": "Not loaded",
+    "ledger_rate_limited": "Paused after a rate limit. Refresh this credential to retry.",
+    "ledger_stopped": "Loading stopped. Use Refresh to retry.",
+    "ledger_window_absent": "Not reported for this plan",
+    "ledger_overflow": "+{{count}}",
+    "ledger_overflow_label": "+{{count}} more limits for {{name}}",
+    "ledger_refresh_label": "Refresh quota for {{name}}",
+    "load_finished": "Quota loaded for {{loaded}} of {{count}} credentials",
+    "stop_blocked": "The backend is temporarily refusing management requests from this address. Loading stopped; use Refresh to retry.",
+    "stop_offline": "Lost connection to the backend. Loading stopped; use Refresh to retry."
   },
   "plugin_management": {
     "title": "Plugin Management",
