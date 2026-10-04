@@ -7,10 +7,22 @@
  */
 
 import type { CSSProperties } from 'react';
+import {
+  QUOTA_LEVEL_HIGH_THRESHOLD,
+  QUOTA_LEVEL_MEDIUM_THRESHOLD,
+  clampQuotaPercent,
+  quotaLevel,
+} from '../level';
 import type { QuotaClassMap } from '../types';
 
-export const QUOTA_PROGRESS_HIGH_THRESHOLD = 70;
-export const QUOTA_PROGRESS_MEDIUM_THRESHOLD = 30;
+export const QUOTA_PROGRESS_HIGH_THRESHOLD = QUOTA_LEVEL_HIGH_THRESHOLD;
+export const QUOTA_PROGRESS_MEDIUM_THRESHOLD = QUOTA_LEVEL_MEDIUM_THRESHOLD;
+
+const LEVEL_FILL_KEY = {
+  high: 'quotaBarFillHigh',
+  medium: 'quotaBarFillMedium',
+  low: 'quotaBarFillLow',
+} as const;
 
 export interface QuotaMeterProps {
   percent: number | null;
@@ -19,16 +31,12 @@ export interface QuotaMeterProps {
 }
 
 export function QuotaMeter({ percent, classes, index }: QuotaMeterProps) {
-  const clamp = (value: number, min: number, max: number) => Math.min(max, Math.max(min, value));
-  const normalized = percent === null ? null : clamp(percent, 0, 100);
+  const normalized = percent === null ? null : clampQuotaPercent(percent);
+  // Unknown keeps the medium class at width 0 (invisible), matching the previous meter.
   const fillClass =
     normalized === null
       ? classes.quotaBarFillMedium
-      : normalized >= QUOTA_PROGRESS_HIGH_THRESHOLD
-        ? classes.quotaBarFillHigh
-        : normalized >= QUOTA_PROGRESS_MEDIUM_THRESHOLD
-          ? classes.quotaBarFillMedium
-          : classes.quotaBarFillLow;
+      : classes[LEVEL_FILL_KEY[quotaLevel(normalized)]];
   const widthPercent = Math.round((normalized ?? 0) * 100) / 100;
   const style: CSSProperties & { '--meter-index'?: number } = { width: `${widthPercent}%` };
   if (index !== undefined) {
