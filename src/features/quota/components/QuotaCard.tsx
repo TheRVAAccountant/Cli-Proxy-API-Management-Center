@@ -72,7 +72,8 @@ export function QuotaCard(props: QuotaCardProps) {
   const loading = status === 'loading';
   const claudeReset = useClaudeResetGrants(
     file,
-    entry.type === 'claude' && status !== 'idle',
+    // Grant reads go out only after quota loaded, and share the request limiter.
+    entry.type === 'claude' && status === 'success',
     !canRefresh || loading || resetting,
     quota,
     onRefresh,

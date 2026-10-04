@@ -3,6 +3,7 @@
  */
 
 import { apiClient } from './client';
+import { managementRequestLimiter } from './requestLimiter';
 import { getConfigValue, guardConfigConnection } from './configValue';
 import { isRecord } from '@/utils/helpers';
 import type { AuthFilesResponse } from '@/types/authFile';
@@ -601,10 +602,12 @@ export const authFilesApi = {
     return response.data as Blob;
   },
 
-  downloadText: async (name: string): Promise<string> => {
-    const blob = await authFilesApi.download(name);
-    return blob.text();
-  },
+  /** Raw credential JSON for quota fetchers; shares the per-credential request cap. */
+  downloadText: (name: string): Promise<string> =>
+    managementRequestLimiter.run(async () => {
+      const blob = await authFilesApi.download(name);
+      return blob.text();
+    }),
 
   // OAuth 排除模型
   async getOauthExcludedModels(): Promise<Record<string, string[]>> {

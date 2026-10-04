@@ -1,149 +1,117 @@
 /**
- * 混合提供商批量额度加载（原 useQuotaLoader 的跨分区泛化）。
- *
- * 保留的三道守卫与旧实现逐一对应：
- * - loadingRef：并发批量加载去重；
- * - requestIdRef：被超越的响应直接丢弃；
- * - cacheGeneration：断线重连后过期请求不得写入新会话缓存。
- * 提交按 provider 分组进行 —— 快的提供商先落地，不等慢的。
+ * Quota loading for the quota page: one load controller per session over the
+ * shared management request limiter. The rules (guards, manual supersede, stop,
+ * rate-limit pause) live in `loadController.ts`; this hook only connects them to
+ * React state.
  */
 
-import { useCallback, useRef, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { useTranslation } from 'react-i18next';
-import { captureQuotaCacheGeneration, commitIfQuotaCacheCurrent } from '@/stores';
-import { getStatusFromError } from '@/utils/quota';
-import { getQuotaCacheKey } from '@/utils/quota/identity';
-import type { QuotaFileEntry } from '../logic';
+import { useAuthStore, useQuotaStore } from '@/stores';
+import { managementRequestLimiter } from '@/services/api/requestLimiter';
+import { QUOTA_MAX_CREDENTIALS_IN_FLIGHT } from '../constants';
 import {
-  BULK_FETCH_OPTIONS,
-  QUOTA_ADAPTERS,
-  getQuotaSetter,
-  isBillableProbeBlockedError,
-  type QuotaCardState,
-} from '../providers';
-import { enrichQuotaInBackground } from '../quotaEnrichment';
-import type { QuotaProviderType } from '../providers/types';
+  EMPTY_QUOTA_LOAD_STATE,
+  createQuotaLoadController,
+  type QuotaLoadController,
+  type QuotaLoadState,
+} from '../loadController';
+import type { QuotaLoadTrigger } from '../loadQueue';
+import type { QuotaFileEntry } from '../logic';
 
-interface BatchFetchResult {
-  name: string;
-  cacheKey: string;
-  /** 'blocked': the fetch stopped before a billable request; the row stays not loaded. */
-  status: 'success' | 'error' | 'blocked';
-  data?: unknown;
-  error?: string;
-  errorStatus?: number;
+export type { QuotaLoadTrigger } from '../loadQueue';
+export type { QuotaNotLoadedReason } from '../loadController';
+
+export interface QuotaBatchLoaderOptions {
+  /** Cache keys of the credentials currently listed. */
+  liveKeys: ReadonlySet<string>;
+  /** Credentials on screen; they load first. */
+  visibleKeys: ReadonlySet<string>;
 }
 
-export function useQuotaBatchLoader() {
+export function useQuotaBatchLoader({ liveKeys, visibleKeys }: QuotaBatchLoaderOptions) {
   const { t } = useTranslation();
-  const [batchLoading, setBatchLoading] = useState(false);
-  const loadingRef = useRef(false);
-  const requestIdRef = useRef(0);
+  const connectionStatus = useAuthStore((state) => state.connectionStatus);
+  const sessionGeneration = useQuotaStore((state) => state.cacheGeneration);
+  const [state, setState] = useState<QuotaLoadState>(EMPTY_QUOTA_LOAD_STATE);
+
+  // Live values read by the controller, which outlives any one render.
+  const liveKeysRef = useRef(liveKeys);
+  const visibleKeysRef = useRef(visibleKeys);
+  const tRef = useRef(t);
+  const connectedRef = useRef(connectionStatus === 'connected');
+  const controllerRef = useRef<QuotaLoadController | null>(null);
+
+  useEffect(() => {
+    liveKeysRef.current = liveKeys;
+  }, [liveKeys]);
+  useEffect(() => {
+    tRef.current = t;
+  }, [t]);
+  useEffect(() => {
+    connectedRef.current = connectionStatus === 'connected';
+    controllerRef.current?.pump();
+  }, [connectionStatus]);
+  useEffect(() => {
+    visibleKeysRef.current = visibleKeys;
+    controllerRef.current?.reprioritize();
+  }, [visibleKeys]);
+
+  // One controller per session; a connection switch or logout replaces it.
+  useEffect(() => {
+    const controller = createQuotaLoadController({
+      maxInFlight: QUOTA_MAX_CREDENTIALS_IN_FLIGHT,
+      limiter: managementRequestLimiter,
+      sessionGeneration,
+      currentSession: () => useQuotaStore.getState().cacheGeneration,
+      isConnected: () => connectedRef.current,
+      isLive: (key) => liveKeysRef.current.has(key),
+      isVisible: (key) => visibleKeysRef.current.has(key),
+      t: () => tRef.current,
+      onChange: setState,
+    });
+    controllerRef.current = controller;
+    setState(controller.state());
+    return () => {
+      controller.dispose();
+      if (controllerRef.current === controller) controllerRef.current = null;
+    };
+  }, [sessionGeneration]);
 
   const loadQuota = useCallback(
-    async (targets: QuotaFileEntry[]) => {
-      if (loadingRef.current) return;
-      if (targets.length === 0) return;
-      loadingRef.current = true;
-      const requestId = ++requestIdRef.current;
-      const cacheGeneration = captureQuotaCacheGeneration();
-      setBatchLoading(true);
-
-      try {
-        const groups = new Map<QuotaProviderType, QuotaFileEntry[]>();
-        targets.forEach((entry) => {
-          const group = groups.get(entry.type) ?? [];
-          group.push(entry);
-          groups.set(entry.type, group);
-        });
-
-        await Promise.all(
-          Array.from(groups.entries()).map(async ([type, entries]) => {
-            const adapter = QUOTA_ADAPTERS[type];
-            const setQuota = getQuotaSetter(adapter);
-
-            const priorStates = new Map<string, QuotaCardState | undefined>();
-            commitIfQuotaCacheCurrent(cacheGeneration, () => {
-              setQuota((prev) => {
-                const nextState = { ...prev };
-                entries.forEach(({ file }) => {
-                  const cacheKey = getQuotaCacheKey(file);
-                  priorStates.set(cacheKey, prev[cacheKey]);
-                  nextState[cacheKey] = adapter.buildLoadingState();
-                });
-                return nextState;
-              });
-            });
-
-            const results = await Promise.all(
-              entries.map(async ({ file }): Promise<BatchFetchResult> => {
-                const cacheKey = getQuotaCacheKey(file);
-                try {
-                  const data = await adapter.fetchQuota(file, t, BULK_FETCH_OPTIONS);
-                  return { name: file.name, cacheKey, status: 'success', data };
-                } catch (err: unknown) {
-                  if (isBillableProbeBlockedError(err)) {
-                    return { name: file.name, cacheKey, status: 'blocked' };
-                  }
-                  const message = err instanceof Error ? err.message : t('common.unknown_error');
-                  return {
-                    name: file.name,
-                    cacheKey,
-                    status: 'error',
-                    error: message,
-                    errorStatus: getStatusFromError(err),
-                  };
-                }
-              })
-            );
-
-            if (requestId !== requestIdRef.current) return;
-
-            const committedStates = new Map<string, QuotaCardState>();
-            setQuota((prev) => {
-              const nextState = { ...prev };
-              results.forEach((result) => {
-                commitIfQuotaCacheCurrent(
-                  cacheGeneration,
-                  () => {
-                    if (result.status === 'blocked') {
-                      // Put back whatever the row showed before this batch marked it loading.
-                      const prior = priorStates.get(result.cacheKey);
-                      if (prior) nextState[result.cacheKey] = prior;
-                      else delete nextState[result.cacheKey];
-                      return;
-                    }
-                    nextState[result.cacheKey] =
-                      result.status === 'success'
-                        ? adapter.buildSuccessState(result.data)
-                        : adapter.buildErrorState(
-                            result.error || t('common.unknown_error'),
-                            result.errorStatus
-                          );
-                    committedStates.set(result.cacheKey, nextState[result.cacheKey]);
-                  },
-                  result.name
-                );
-              });
-              return nextState;
-            });
-            results.forEach((result, index) => {
-              const state = committedStates.get(result.cacheKey);
-              if (result.status === 'success' && state) {
-                void enrichQuotaInBackground(adapter, entries[index].file, result.data, state, t);
-              }
-            });
-          })
-        );
-      } finally {
-        if (requestId === requestIdRef.current) {
-          setBatchLoading(false);
-          loadingRef.current = false;
-        }
-      }
-    },
-    [t]
+    (targets: readonly QuotaFileEntry[], trigger: QuotaLoadTrigger) =>
+      controllerRef.current?.load(targets, trigger),
+    []
+  );
+  const promote = useCallback((key: string) => controllerRef.current?.promote(key) ?? false, []);
+  /** Stable check for effects and handlers: reads the live controller, not the last render. */
+  const isPendingNow = useCallback(
+    (key: string) => controllerRef.current?.isPending(key) ?? false,
+    []
+  );
+  const wasAttempted = useCallback(
+    (key: string) => controllerRef.current?.wasAttempted(key) ?? false,
+    []
+  );
+  const isPending = useCallback(
+    (key: string) => state.queued.has(key) || state.inFlight.has(key),
+    [state]
   );
 
-  return { batchLoading, loadQuota };
+  const batchLoading = state.queued.size > 0 || state.inFlight.size > 0;
+
+  return useMemo(
+    () => ({
+      batchLoading,
+      loadQuota,
+      promote,
+      isPending,
+      isPendingNow,
+      wasAttempted,
+      queuedKeys: state.queued,
+      notLoaded: state.notLoaded,
+      stop: state.stop,
+    }),
+    [batchLoading, isPending, isPendingNow, loadQuota, promote, state, wasAttempted]
+  );
 }

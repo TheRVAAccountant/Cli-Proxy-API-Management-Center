@@ -2,8 +2,9 @@
  * 额度查询页：提供商 tabs + 统一卡网格。
  *
  * 保留的行为契约（重设计不改）：
- * - 现有提供商保持点击加载；Devin 首次可见时主动查询一次，不轮询；
- * - cacheGeneration 会话隔离 + request-id 去重（见 useQuotaBatchLoader）；
+ * - quota loads automatically, one attempt per credential per visit, through the
+ *   page-owned queue over the shared request limiter (useQuotaBatchLoader); no polling;
+ * - cacheGeneration session isolation plus per-key tokens (see useQuotaBatchLoader);
  * - 文件列表变化后按 provider 剪枝额度缓存（已删文件不残留）；
  * - useHeaderRefresh 单槽位：本页唯一注册者，全局刷新 = 重取文件列表。
  */
@@ -47,9 +48,10 @@ import {
 import { nextRecoveryMs } from './resetSchedule';
 import { QUOTA_ADAPTERS, getQuotaSetter, type QuotaCardState } from './providers';
 import type { QuotaProviderType } from './providers/types';
-import { useDevinQuotaAutoLoad } from './providers/devin/useDevinQuotaAutoLoad';
 import { useQuotaActions } from './hooks/useQuotaActions';
 import { useQuotaBatchLoader } from './hooks/useQuotaBatchLoader';
+import { readStoredQuotaStatus, useQuotaAutoLoad } from './hooks/useQuotaAutoLoad';
+import { isQuotaListSettled, selectRefreshTargets } from './autoLoad';
 import { readQuotaUiState, writeQuotaUiState } from './uiState';
 import { buildCredentialLabels, credentialDisplayLabel } from './credentialLabel';
 import styles from './QuotaPage.module.scss';
@@ -252,16 +254,60 @@ export function QuotaPage() {
 
   /* ---------- 加载与操作 ---------- */
 
-  const { batchLoading, loadQuota } = useQuotaBatchLoader();
+  const liveKeys = useMemo(
+    () => new Set(entries.map((entry) => getQuotaCacheKey(entry.file))),
+    [entries]
+  );
+  const visibleKeys = useMemo(
+    () => new Set(pageItems.map((entry) => getQuotaCacheKey(entry.file))),
+    [pageItems]
+  );
+  const loader = useQuotaBatchLoader({ liveKeys, visibleKeys });
+  const { batchLoading, loadQuota, isPendingNow, wasAttempted } = loader;
   const { resettingQuotaName, refreshQuota, resetQuota } = useQuotaActions(
     disableControls,
     actionLabels
   );
 
+  // Quota loads by itself once the credential list for this session has settled.
+  useQuotaAutoLoad({
+    entries,
+    settled: isQuotaListSettled({
+      connected: connectionStatus === 'connected',
+      loading,
+      hasError: Boolean(error),
+      filesGeneration,
+      sessionGeneration,
+    }),
+    sessionGeneration,
+    loadQuota,
+    isPendingNow,
+    wasAttempted,
+  });
+
+  /** A row's own refresh: jump the queue if waiting, wait if in flight, else load now. */
+  const handleRowRefresh = useCallback(
+    (entry: QuotaFileEntry) => {
+      const key = getQuotaCacheKey(entry.file);
+      if (loader.promote(key) || isPendingNow(key)) return;
+      void refreshQuota(entry.file, QUOTA_ADAPTERS[entry.type]);
+    },
+    [isPendingNow, loader, refreshQuota]
+  );
+
+  const handleRowReset = useCallback(
+    (entry: QuotaFileEntry) => {
+      if (isPendingNow(getQuotaCacheKey(entry.file))) return;
+      resetQuota(entry.file, QUOTA_ADAPTERS[entry.type]);
+    },
+    [isPendingNow, resetQuota]
+  );
+
   const pendingRefreshRef = useRef<number | null>(null);
   const prevLoadingRef = useRef(loading);
 
-  // 刷新全部：先重取文件列表，待其落定（loading 下降沿）再批量拉当前页额度
+  // Refresh: refetch the credential list, then once it settles (loading falling edge)
+  // refresh every eligible credential through the queue.
   const handleRefreshAll = useCallback(() => {
     if (disableControls) return;
     pendingRefreshRef.current = sessionGeneration;
@@ -290,19 +336,9 @@ export function QuotaPage() {
         disableControls
       )
     ) {
-      void loadQuota(pageItems);
+      loadQuota(selectRefreshTargets(entries, { statusFor: readStoredQuotaStatus }), 'manual');
     }
-  }, [disableControls, error, filesGeneration, loading, loadQuota, pageItems, sessionGeneration]);
-
-  useDevinQuotaAutoLoad(
-    pageItems,
-    disableControls ||
-      loading ||
-      batchLoading ||
-      Boolean(error) ||
-      filesGeneration !== sessionGeneration,
-    loadQuota
-  );
+  }, [disableControls, entries, error, filesGeneration, loading, loadQuota, sessionGeneration]);
 
   const canUseActions = !disableControls && !loading && filesGeneration === sessionGeneration;
 
@@ -442,8 +478,8 @@ export function QuotaPage() {
                 canRefresh={canUseActions && !entry.file.disabled}
                 resetting={resettingQuotaName === getQuotaCacheKey(entry.file)}
                 entranceDelayMs={cardEntranceDelay(index)}
-                onRefresh={() => void refreshQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
-                onReset={() => resetQuota(entry.file, QUOTA_ADAPTERS[entry.type])}
+                onRefresh={() => handleRowRefresh(entry)}
+                onReset={() => handleRowReset(entry)}
               />
             ))}
           </div>
