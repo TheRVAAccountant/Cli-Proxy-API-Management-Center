@@ -635,7 +635,8 @@
     "paid_health": "Чат платного API доступен. xAI не предоставляет данные об общей квоте для этих учётных данных OAuth.",
     "pay_as_you_go_label": "Оплата по факту",
     "pay_as_you_go_enabled": "Включено, лимит {{cap}}",
-    "pay_as_you_go_disabled": "Отключено"
+    "pay_as_you_go_disabled": "Отключено",
+    "billable_probe_blocked": "Не загружено. Проверка этих учётных данных отправляет платный запрос к xAI, поэтому используйте для них «Обновить квоту»."
   },
   "vertex_import": {
     "title": "Вход с Vertex JSON",

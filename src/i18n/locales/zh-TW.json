@@ -630,7 +630,8 @@
     "paid_health": "付費 API 對話可用。xAI 暫不為此 OAuth 憑證提供配額總量資料。",
     "pay_as_you_go_label": "按量付費",
     "pay_as_you_go_enabled": "已啟用，封頂 {{cap}}",
-    "pay_as_you_go_disabled": "未啟用"
+    "pay_as_you_go_disabled": "未啟用",
+    "billable_probe_blocked": "未載入。檢查此憑證會送出一次計費的 xAI 請求，請對它單獨使用「重新整理配額」。"
   },
   "vertex_import": {
     "title": "Vertex JSON 登入",

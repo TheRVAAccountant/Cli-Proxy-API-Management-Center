@@ -632,7 +632,8 @@
     "paid_health": "Paid API chat is available. xAI does not expose quota totals for this OAuth credential.",
     "pay_as_you_go_label": "Pay as you go",
     "pay_as_you_go_enabled": "Enabled, cap {{cap}}",
-    "pay_as_you_go_disabled": "Disabled"
+    "pay_as_you_go_disabled": "Disabled",
+    "billable_probe_blocked": "Not loaded. Checking this credential sends a billable xAI request, so use Refresh quota on it to check."
   },
   "vertex_import": {
     "title": "Vertex JSON Login",

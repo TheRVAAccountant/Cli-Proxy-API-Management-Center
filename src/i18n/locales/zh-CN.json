@@ -630,7 +630,8 @@
     "paid_health": "付费 API 对话可用。xAI 暂不为此 OAuth 凭证提供额度总量数据。",
     "pay_as_you_go_label": "按量付费",
     "pay_as_you_go_enabled": "已启用，封顶 {{cap}}",
-    "pay_as_you_go_disabled": "未启用"
+    "pay_as_you_go_disabled": "未启用",
+    "billable_probe_blocked": "未加载。检查此凭证会发送一次计费的 xAI 请求，请对它单独使用“刷新额度”。"
   },
   "vertex_import": {
     "title": "Vertex JSON 登录",

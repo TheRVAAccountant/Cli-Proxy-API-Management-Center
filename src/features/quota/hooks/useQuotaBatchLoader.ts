@@ -14,14 +14,21 @@ import { captureQuotaCacheGeneration, commitIfQuotaCacheCurrent } from '@/stores
 import { getStatusFromError } from '@/utils/quota';
 import { getQuotaCacheKey } from '@/utils/quota/identity';
 import type { QuotaFileEntry } from '../logic';
-import { QUOTA_ADAPTERS, getQuotaSetter, type QuotaCardState } from '../providers';
+import {
+  BULK_FETCH_OPTIONS,
+  QUOTA_ADAPTERS,
+  getQuotaSetter,
+  isBillableProbeBlockedError,
+  type QuotaCardState,
+} from '../providers';
 import { enrichQuotaInBackground } from '../quotaEnrichment';
 import type { QuotaProviderType } from '../providers/types';
 
 interface BatchFetchResult {
   name: string;
   cacheKey: string;
-  status: 'success' | 'error';
+  /** 'blocked': the fetch stopped before a billable request; the row stays not loaded. */
+  status: 'success' | 'error' | 'blocked';
   data?: unknown;
   error?: string;
   errorStatus?: number;
@@ -55,11 +62,14 @@ export function useQuotaBatchLoader() {
             const adapter = QUOTA_ADAPTERS[type];
             const setQuota = getQuotaSetter(adapter);
 
+            const priorStates = new Map<string, QuotaCardState | undefined>();
             commitIfQuotaCacheCurrent(cacheGeneration, () => {
               setQuota((prev) => {
                 const nextState = { ...prev };
                 entries.forEach(({ file }) => {
-                  nextState[getQuotaCacheKey(file)] = adapter.buildLoadingState();
+                  const cacheKey = getQuotaCacheKey(file);
+                  priorStates.set(cacheKey, prev[cacheKey]);
+                  nextState[cacheKey] = adapter.buildLoadingState();
                 });
                 return nextState;
               });
@@ -69,9 +79,12 @@ export function useQuotaBatchLoader() {
               entries.map(async ({ file }): Promise<BatchFetchResult> => {
                 const cacheKey = getQuotaCacheKey(file);
                 try {
-                  const data = await adapter.fetchQuota(file, t);
+                  const data = await adapter.fetchQuota(file, t, BULK_FETCH_OPTIONS);
                   return { name: file.name, cacheKey, status: 'success', data };
                 } catch (err: unknown) {
+                  if (isBillableProbeBlockedError(err)) {
+                    return { name: file.name, cacheKey, status: 'blocked' };
+                  }
                   const message = err instanceof Error ? err.message : t('common.unknown_error');
                   return {
                     name: file.name,
@@ -93,6 +106,13 @@ export function useQuotaBatchLoader() {
                 commitIfQuotaCacheCurrent(
                   cacheGeneration,
                   () => {
+                    if (result.status === 'blocked') {
+                      // Put back whatever the row showed before this batch marked it loading.
+                      const prior = priorStates.get(result.cacheKey);
+                      if (prior) nextState[result.cacheKey] = prior;
+                      else delete nextState[result.cacheKey];
+                      return;
+                    }
                     nextState[result.cacheKey] =
                       result.status === 'success'
                         ? adapter.buildSuccessState(result.data)
