@@ -16,7 +16,11 @@ import type {
   XaiBillingSummary,
   XaiQuotaState,
 } from '@/types';
-import { PREMIUM_CODEX_PLAN_TYPES, normalizePlanType } from '@/utils/quota';
+import {
+  PREMIUM_CODEX_PLAN_TYPES,
+  PRO_MAX_CODEX_PLAN_TYPES,
+  normalizePlanType,
+} from '@/utils/quota';
 import type { QuotaProviderType } from './providers/types';
 
 export const getClaudePlanLabel = (planType: string | null | undefined, t: TFunction) =>
@@ -29,6 +33,7 @@ export const getCodexPlanLabel = (planType: string | null | undefined, t: TFunct
     return t('codex_quota.plan_business_premium');
   }
   if (normalized === 'pro') return t('codex_quota.plan_pro');
+  if (PRO_MAX_CODEX_PLAN_TYPES.has(normalized)) return t('codex_quota.plan_promax');
   if (PREMIUM_CODEX_PLAN_TYPES.has(normalized) && normalized !== 'pro') {
     return t('codex_quota.plan_prolite');
   }

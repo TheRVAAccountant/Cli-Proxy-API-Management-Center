@@ -11,9 +11,10 @@ import {
 
 describe('Codex Pro display names', () => {
   for (const [locale, messages] of Object.entries({ en, 'zh-CN': zhCN, 'zh-TW': zhTW, ru })) {
-    test(`${locale} labels Pro plans as Pro 100 and Pro 200`, () => {
+    test(`${locale} labels Pro plans as Pro 100, Pro 200 and Pro Max`, () => {
       expect(messages.codex_quota.plan_prolite).toBe('Pro 100');
       expect(messages.codex_quota.plan_pro).toBe('Pro 200');
+      expect(messages.codex_quota.plan_promax).toBe('Pro Max');
     });
   }
 });
@@ -36,6 +37,13 @@ describe('resolvePlanTier', () => {
     expect(resolvePlanTier('prolite')).toBe('premium');
     expect(resolvePlanTier('pro-lite')).toBe('premium');
     expect(resolvePlanTier('pro_lite')).toBe('premium');
+  });
+
+  test('maps every pro-max spelling to elite', () => {
+    expect(resolvePlanTier('promax')).toBe('elite');
+    expect(resolvePlanTier('pro-max')).toBe('elite');
+    expect(resolvePlanTier('pro_max')).toBe('elite');
+    expect(resolvePlanTier('  ProMax  ')).toBe('elite');
   });
 
   test('recognizes Business Premium without promoting other business entitlements', () => {
