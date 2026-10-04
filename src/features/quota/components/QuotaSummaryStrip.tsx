@@ -23,6 +23,7 @@ import styles from './QuotaSummaryStrip.module.scss';
 
 export const SUMMARY_STRIP_CLASS_KEYS = [
   'strip',
+  'stripGrid',
   'cell',
   'cellHead',
   'provider',
@@ -124,122 +125,126 @@ export function QuotaSummaryStrip({
 
   return (
     <section className={classes.strip} aria-label={t('quota_management.summary_label')}>
-      {summaries.map((summary) => {
-        const { provider, primary, secondary, revealed } = summary;
-        const typeLabel = getTypeLabel(t, provider);
-        const iconSrc = getAuthFileIcon(provider, resolvedTheme);
-        const isOpen = expanded.has(provider);
-        return (
-          <article key={provider} className={classes.cell}>
-            <header className={classes.cellHead}>
-              <span className={classes.provider}>
-                <span
-                  className={classes.providerIcon}
-                  style={
-                    isThemeSurfaceIconProvider(provider)
-                      ? { background: getThemeSurfaceIconBackground(resolvedTheme) }
-                      : undefined
-                  }
-                >
-                  {iconSrc ? (
-                    <img src={iconSrc} alt="" />
-                  ) : (
-                    <span className={classes.providerIconFallback}>
-                      {typeLabel.slice(0, 1).toUpperCase()}
-                    </span>
-                  )}
-                </span>
-                {typeLabel}
-              </span>
-              <span className={classes.count}>
-                {summary.loadedCount < summary.credentialCount
-                  ? t('quota_management.summary_reporting', {
-                      loaded: summary.loadedCount,
-                      count: summary.credentialCount,
-                    })
-                  : t('quota_management.meta_credentials', { count: summary.credentialCount })}
-              </span>
-            </header>
-
-            {primary ? (
-              <>
-                <div className={classes.windowLabel}>{primary.label}</div>
-                <div className={classes.total}>{totalLine(primary)}</div>
-                <div className={classes.bar} role="img" aria-label={barLabel(primary)}>
-                  {primary.segments
-                    ? primary.segments.map((segment) => (
-                        <span
-                          key={segment.key}
-                          className={`${classes.segment} ${classes[LEVEL_CLASS[segment.level]]}`}
-                        >
-                          {segment.remaining !== null && (
-                            <span
-                              className={classes.segmentFill}
-                              style={{ width: `${segment.remaining}%` } as CSSProperties}
-                            />
-                          )}
-                        </span>
-                      ))
-                    : (primary.bands ?? []).map((band) => (
-                        <span
-                          key={band.level}
-                          className={`${classes.band} ${classes[LEVEL_CLASS[band.level]]}`}
-                          style={{ flexGrow: band.count } as CSSProperties}
-                        />
-                      ))}
-                </div>
-                <QuotaResetLine
-                  className={classes.reset}
-                  resetAtMs={primary.earliestResetAtMs}
-                  emptyLabel={t('quota_management.no_reset_pending')}
-                  now={now}
-                />
-              </>
-            ) : (
-              <div className={classes.empty}>
-                <span className={classes.totalValue}>--</span>
-              </div>
-            )}
-
-            {(secondary || revealed.length > 0) && (
-              <div className={classes.secondary}>
-                {secondary && (
-                  <>
-                    <span className={classes.secondaryLabel}>{secondary.label}</span>
-                    <span className={classes.secondaryValue}>{percent(secondary.total)}</span>
-                  </>
-                )}
-                {revealed.length > 0 && (
-                  <button
-                    type="button"
-                    className={classes.toggle}
-                    aria-expanded={isOpen}
-                    aria-label={t(
-                      isOpen
-                        ? 'quota_management.summary_hide_label'
-                        : 'quota_management.summary_show_label',
-                      { provider: typeLabel }
-                    )}
-                    onClick={() => toggle(provider)}
+      <div className={classes.stripGrid}>
+        {summaries.map((summary) => {
+          const { provider, primary, secondary, revealed } = summary;
+          const typeLabel = getTypeLabel(t, provider);
+          const iconSrc = getAuthFileIcon(provider, resolvedTheme);
+          const isOpen = expanded.has(provider);
+          return (
+            <article key={provider} className={classes.cell}>
+              <header className={classes.cellHead}>
+                <span className={classes.provider}>
+                  <span
+                    className={classes.providerIcon}
+                    style={
+                      isThemeSurfaceIconProvider(provider)
+                        ? { background: getThemeSurfaceIconBackground(resolvedTheme) }
+                        : undefined
+                    }
                   >
-                    {t(isOpen ? 'quota_management.summary_hide' : 'quota_management.summary_show')}
-                  </button>
-                )}
-              </div>
-            )}
-            {isOpen && (
-              <ul className={classes.revealed}>
-                {revealed.map((window, index) => (
-                  <li key={`${window.label}-${index}`} className={classes.revealedRow}>
-                    <span className={classes.secondaryLabel}>{window.label}</span>
-                    <span className={classes.secondaryValue}>{totalLine(window)}</span>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </article>
-        );
-      })}
+                    {iconSrc ? (
+                      <img src={iconSrc} alt="" />
+                    ) : (
+                      <span className={classes.providerIconFallback}>
+                        {typeLabel.slice(0, 1).toUpperCase()}
+                      </span>
+                    )}
+                  </span>
+                  {typeLabel}
+                </span>
+                <span className={classes.count}>
+                  {summary.loadedCount < summary.credentialCount
+                    ? t('quota_management.summary_reporting', {
+                        loaded: summary.loadedCount,
+                        count: summary.credentialCount,
+                      })
+                    : t('quota_management.summary_credentials', { count: summary.credentialCount })}
+                </span>
+              </header>
+
+              {primary ? (
+                <>
+                  <div className={classes.windowLabel}>{primary.label}</div>
+                  <div className={classes.total}>{totalLine(primary)}</div>
+                  <div className={classes.bar} role="img" aria-label={barLabel(primary)}>
+                    {primary.segments
+                      ? primary.segments.map((segment) => (
+                          <span
+                            key={segment.key}
+                            className={`${classes.segment} ${classes[LEVEL_CLASS[segment.level]]}`}
+                          >
+                            {segment.remaining !== null && (
+                              <span
+                                className={classes.segmentFill}
+                                style={{ width: `${segment.remaining}%` } as CSSProperties}
+                              />
+                            )}
+                          </span>
+                        ))
+                      : (primary.bands ?? []).map((band) => (
+                          <span
+                            key={band.level}
+                            className={`${classes.band} ${classes[LEVEL_CLASS[band.level]]}`}
+                            style={{ flexGrow: band.count } as CSSProperties}
+                          />
+                        ))}
+                  </div>
+                  <QuotaResetLine
+                    className={classes.reset}
+                    resetAtMs={primary.earliestResetAtMs}
+                    emptyLabel={t('quota_management.no_reset_pending')}
+                    now={now}
+                  />
+                </>
+              ) : (
+                <div className={classes.empty}>
+                  <span className={classes.totalValue}>--</span>
+                </div>
+              )}
+
+              {(secondary || revealed.length > 0) && (
+                <div className={classes.secondary}>
+                  {secondary && (
+                    <>
+                      <span className={classes.secondaryLabel}>{secondary.label}</span>
+                      <span className={classes.secondaryValue}>{percent(secondary.total)}</span>
+                    </>
+                  )}
+                  {revealed.length > 0 && (
+                    <button
+                      type="button"
+                      className={classes.toggle}
+                      aria-expanded={isOpen}
+                      aria-label={t(
+                        isOpen
+                          ? 'quota_management.summary_hide_label'
+                          : 'quota_management.summary_show_label',
+                        { provider: typeLabel }
+                      )}
+                      onClick={() => toggle(provider)}
+                    >
+                      {t(
+                        isOpen ? 'quota_management.summary_hide' : 'quota_management.summary_show'
+                      )}
+                    </button>
+                  )}
+                </div>
+              )}
+              {isOpen && (
+                <ul className={classes.revealed}>
+                  {revealed.map((window, index) => (
+                    <li key={`${window.label}-${index}`} className={classes.revealedRow}>
+                      <span className={classes.secondaryLabel}>{window.label}</span>
+                      <span className={classes.secondaryValue}>{totalLine(window)}</span>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </article>
+          );
+        })}
+      </div>
     </section>
   );
 }

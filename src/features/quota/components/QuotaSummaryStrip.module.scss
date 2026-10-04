@@ -1,16 +1,22 @@
 @use '../../../styles/mixins' as *;
 
 /* Provider summary strip: one bordered strip, cells divided by hairlines.
- * Cells flow into as many columns as fit and stack to one on phones. */
+ * Cells flow into as many columns as fit and stack to one on phones. Each cell
+ * draws its right and bottom hairline; the grid's negative margin pushes the
+ * outer ones under the strip's clipped border, so a short last row leaves clean
+ * space instead of a divider-colored block. */
 
 .strip {
-  display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-  gap: 1px;
   overflow: hidden;
   border: 1px solid var(--border-color);
   border-radius: 14px;
-  background: var(--border-color);
+  background: var(--bg-primary);
+}
+
+.stripGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  margin: 0 -1px -1px 0;
 }
 
 .cell {
@@ -19,7 +25,8 @@
   gap: 8px;
   min-width: 0;
   padding: 16px 18px 14px;
-  background: var(--bg-primary);
+  border-right: 1px solid var(--border-color);
+  border-bottom: 1px solid var(--border-color);
 }
 
 .cellHead {
@@ -231,7 +238,7 @@
 }
 
 @include mobile {
-  .strip {
+  .stripGrid {
     grid-template-columns: 1fr;
   }
 

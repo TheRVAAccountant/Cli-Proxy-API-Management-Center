@@ -1617,7 +1617,11 @@
     "ledger_refresh_label": "Refresh quota for {{name}}",
     "load_finished": "Quota loaded for {{loaded}} of {{count}} credentials",
     "stop_blocked": "The backend is temporarily refusing management requests from this address. Loading stopped; use Refresh to retry.",
-    "stop_offline": "Lost connection to the backend. Loading stopped; use Refresh to retry."
+    "stop_offline": "Lost connection to the backend. Loading stopped; use Refresh to retry.",
+    "summary_credentials_one": "{{count}} credential",
+    "summary_credentials_few": "{{count}} credentials",
+    "summary_credentials_many": "{{count}} credentials",
+    "summary_credentials_other": "{{count}} credentials"
   },
   "plugin_management": {
     "title": "Plugin Management",

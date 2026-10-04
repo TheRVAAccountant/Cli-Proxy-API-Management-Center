@@ -1641,7 +1641,11 @@
     "ledger_refresh_label": "重新整理配額：{{name}}",
     "load_finished": "已載入 {{loaded}}/{{count}} 個憑證的配額",
     "stop_blocked": "後端暫時拒絕來自此位址的管理請求，載入已停止。點擊「重新整理」重試。",
-    "stop_offline": "與後端的連線已中斷，載入已停止。點擊「重新整理」重試。"
+    "stop_offline": "與後端的連線已中斷，載入已停止。點擊「重新整理」重試。",
+    "summary_credentials_one": "{{count}} 個憑證",
+    "summary_credentials_few": "{{count}} 個憑證",
+    "summary_credentials_many": "{{count}} 個憑證",
+    "summary_credentials_other": "{{count}} 個憑證"
   },
   "plugin_management": {
     "title": "插件管理",

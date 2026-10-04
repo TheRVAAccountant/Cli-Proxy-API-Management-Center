@@ -1615,7 +1615,11 @@
     "ledger_refresh_label": "刷新额度：{{name}}",
     "load_finished": "已加载 {{loaded}}/{{count}} 个凭证的额度",
     "stop_blocked": "后端暂时拒绝来自此地址的管理请求，加载已停止。点击“刷新”重试。",
-    "stop_offline": "与后端的连接已断开，加载已停止。点击“刷新”重试。"
+    "stop_offline": "与后端的连接已断开，加载已停止。点击“刷新”重试。",
+    "summary_credentials_one": "{{count}} 个凭证",
+    "summary_credentials_few": "{{count}} 个凭证",
+    "summary_credentials_many": "{{count}} 个凭证",
+    "summary_credentials_other": "{{count}} 个凭证"
   },
   "plugin_management": {
     "title": "插件管理",

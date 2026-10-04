@@ -112,6 +112,21 @@ describe('quota summary strip', () => {
     const reset = buildResetDisplay(null, NOW + 11 * HOUR, NOW, 'en');
     expect(html).toContain(`${reset?.relative} · ${reset?.absolute}`);
     expect(html).toContain('5 credentials');
+    expect(
+      render(
+        summariesFor({
+          kimi: [
+            [
+              'k@k.dev',
+              {
+                status: 'success',
+                rows: [{ id: 'summary', label: 'Weekly limit', used: 0, limit: 100 }],
+              },
+            ],
+          ],
+        })
+      )
+    ).toContain('1 credential<');
     expect(html).toContain('<span class="secondaryValue">454%</span>');
   });
 
